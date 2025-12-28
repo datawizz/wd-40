@@ -180,6 +180,183 @@ pub fn is_python_venv_dir(path: &Path) -> bool {
     has_lib || has_lib_windows
 }
 
+/// Validates if a directory is an sccache cache directory by checking multiple attributes
+pub fn is_sccache_dir(path: &Path) -> bool {
+    // Must be named ".sccache"
+    if path.file_name().and_then(|n| n.to_str()) != Some(".sccache") {
+        return false;
+    }
+
+    // Safety: Must NOT contain project markers (avoid false positives)
+    if path.join("Cargo.toml").exists()
+        || path.join("package.json").exists()
+        || path.join(".git").exists() {
+        return false;
+    }
+
+    // Check if directory has cache-like structure
+    // sccache typically contains subdirectories with cached compilation artifacts
+    let has_subdirectories = fs::read_dir(path)
+        .ok()
+        .and_then(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .find(|e| e.path().is_dir())
+        })
+        .is_some();
+
+    // Also check for files that would indicate this is a cache directory
+    let has_files = fs::read_dir(path)
+        .ok()
+        .and_then(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .find(|e| e.path().is_file())
+        })
+        .is_some();
+
+    // Must have either subdirectories or files (not be empty)
+    has_subdirectories || has_files
+}
+
+/// Validates if a directory is a Haskell Stack work directory by checking multiple attributes
+pub fn is_stack_work_dir(path: &Path) -> bool {
+    // Must be named ".stack-work"
+    if path.file_name().and_then(|n| n.to_str()) != Some(".stack-work") {
+        return false;
+    }
+
+    // Safety: Must NOT contain project markers (avoid false positives)
+    if path.join("Cargo.toml").exists()
+        || path.join("package.json").exists()
+        || path.join(".git").exists()
+        || path.join("setup.py").exists() {
+        return false;
+    }
+
+    // Check for Stack-specific markers
+    // Stack work directories contain at least one of these characteristic structures
+    let has_sqlite_db = path.join("stack.sqlite3").exists();
+    let has_dist_dir = path.join("dist").exists();
+    let has_install_dir = path.join("install").exists();
+
+    // Must have at least one Stack marker
+    if !has_sqlite_db && !has_dist_dir && !has_install_dir {
+        return false;
+    }
+
+    // Additional validation: parent should ideally have stack.yaml or package.yaml (Stack project markers)
+    // This is optional but adds extra safety
+    if let Some(parent) = path.parent() {
+        let has_stack_yaml = parent.join("stack.yaml").exists();
+        let has_package_yaml = parent.join("package.yaml").exists();
+        let has_cabal_file = fs::read_dir(parent)
+            .ok()
+            .and_then(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .find(|e| {
+                        e.path().extension()
+                            .and_then(|ext| ext.to_str()) == Some("cabal")
+                    })
+            })
+            .is_some();
+
+        // If parent exists, it should have at least one Haskell project marker
+        // OR we should have strong Stack markers (sqlite db is very specific)
+        if !has_stack_yaml && !has_package_yaml && !has_cabal_file && !has_sqlite_db {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Validates if a directory is a rustup installation directory by checking multiple attributes
+pub fn is_rustup_dir(path: &Path) -> bool {
+    // Must be named ".rustup"
+    if path.file_name().and_then(|n| n.to_str()) != Some(".rustup") {
+        return false;
+    }
+
+    // Safety: Must NOT contain project markers (avoid false positives)
+    if path.join("Cargo.toml").exists()
+        || path.join("package.json").exists()
+        || path.join(".git").exists() {
+        return false;
+    }
+
+    // Must contain at least one rustup-specific marker
+    let has_settings = path.join("settings.toml").exists();
+    let has_toolchains = path.join("toolchains").exists();
+    let has_downloads = path.join("downloads").exists();
+    let has_update_hashes = path.join("update-hashes").exists();
+
+    // Must have at least one rustup marker
+    has_settings || has_toolchains || has_downloads || has_update_hashes
+}
+
+/// Validates if a directory is a Next.js build directory by checking multiple attributes
+pub fn is_next_dir(path: &Path) -> bool {
+    // Must be named ".next"
+    if path.file_name().and_then(|n| n.to_str()) != Some(".next") {
+        return false;
+    }
+
+    // Safety: Must NOT contain project markers (avoid false positives)
+    if path.join("Cargo.toml").exists()
+        || path.join("package.json").exists()
+        || path.join(".git").exists() {
+        return false;
+    }
+
+    // Must contain at least one Next.js marker
+    let has_build_id = path.join("BUILD_ID").exists();
+    let has_cache = path.join("cache").exists();
+    let has_server = path.join("server").exists();
+    let has_static = path.join("static").exists();
+
+    // Must have at least one Next.js marker
+    if !has_build_id && !has_cache && !has_server && !has_static {
+        return false;
+    }
+
+    // Parent should have Next.js project markers
+    if let Some(parent) = path.parent() {
+        let has_next_config_js = parent.join("next.config.js").exists();
+        let has_next_config_mjs = parent.join("next.config.mjs").exists();
+        let has_next_config_ts = parent.join("next.config.ts").exists();
+        let has_package_json = parent.join("package.json").exists();
+
+        return has_next_config_js || has_next_config_mjs || has_next_config_ts || has_package_json;
+    }
+
+    false
+}
+
+/// Validates if a directory is a cargo-nix cache directory by checking multiple attributes
+pub fn is_cargo_nix_dir(path: &Path) -> bool {
+    // Must be named ".cargo-nix"
+    if path.file_name().and_then(|n| n.to_str()) != Some(".cargo-nix") {
+        return false;
+    }
+
+    // Safety: Must NOT contain project markers (avoid false positives)
+    if path.join("Cargo.toml").exists()
+        || path.join("package.json").exists()
+        || path.join(".git").exists() {
+        return false;
+    }
+
+    // Must have content (files or subdirectories) - not empty
+    let has_content = fs::read_dir(path)
+        .ok()
+        .and_then(|entries| entries.filter_map(|e| e.ok()).next())
+        .is_some();
+
+    has_content
+}
+
 /// Safely deletes a Rust target directory with multiple verification layers
 pub fn delete_target_dir(target_path: &Path, dry_run: bool) -> Result<Option<u64>> {
     // Triple verification
@@ -277,6 +454,111 @@ pub fn delete_venv_dir(venv_path: &Path, dry_run: bool) -> Result<Option<u64>> {
     // Delete the directory
     fs::remove_dir_all(venv_path)
         .with_context(|| format!("Failed to delete Python venv directory: {}", venv_path.display()))?;
+
+    Ok(Some(size))
+}
+
+/// Safely deletes an sccache cache directory with verification
+pub fn delete_sccache_dir(sccache_path: &Path, dry_run: bool) -> Result<Option<u64>> {
+    // Verify it's actually an sccache directory
+    if !is_sccache_dir(sccache_path) {
+        return Ok(None);
+    }
+
+    if dry_run {
+        return Ok(Some(0)); // In dry-run, don't calculate size
+    }
+
+    // Calculate size before deletion
+    let size = calculate_dir_size(sccache_path).unwrap_or(0);
+
+    // Delete the directory
+    fs::remove_dir_all(sccache_path)
+        .with_context(|| format!("Failed to delete sccache directory: {}", sccache_path.display()))?;
+
+    Ok(Some(size))
+}
+
+/// Safely deletes a Haskell Stack work directory with verification
+pub fn delete_stack_work_dir(stack_work_path: &Path, dry_run: bool) -> Result<Option<u64>> {
+    // Verify it's actually a Stack work directory
+    if !is_stack_work_dir(stack_work_path) {
+        return Ok(None);
+    }
+
+    if dry_run {
+        return Ok(Some(0)); // In dry-run, don't calculate size
+    }
+
+    // Calculate size before deletion
+    let size = calculate_dir_size(stack_work_path).unwrap_or(0);
+
+    // Delete the directory
+    fs::remove_dir_all(stack_work_path)
+        .with_context(|| format!("Failed to delete Stack work directory: {}", stack_work_path.display()))?;
+
+    Ok(Some(size))
+}
+
+/// Safely deletes a rustup installation directory with verification
+pub fn delete_rustup_dir(rustup_path: &Path, dry_run: bool) -> Result<Option<u64>> {
+    // Verify it's actually a rustup directory
+    if !is_rustup_dir(rustup_path) {
+        return Ok(None);
+    }
+
+    if dry_run {
+        return Ok(Some(0)); // In dry-run, don't calculate size
+    }
+
+    // Calculate size before deletion
+    let size = calculate_dir_size(rustup_path).unwrap_or(0);
+
+    // Delete the directory
+    fs::remove_dir_all(rustup_path)
+        .with_context(|| format!("Failed to delete rustup directory: {}", rustup_path.display()))?;
+
+    Ok(Some(size))
+}
+
+/// Safely deletes a Next.js build directory with verification
+pub fn delete_next_dir(next_path: &Path, dry_run: bool) -> Result<Option<u64>> {
+    // Verify it's actually a Next.js build directory
+    if !is_next_dir(next_path) {
+        return Ok(None);
+    }
+
+    if dry_run {
+        return Ok(Some(0)); // In dry-run, don't calculate size
+    }
+
+    // Calculate size before deletion
+    let size = calculate_dir_size(next_path).unwrap_or(0);
+
+    // Delete the directory
+    fs::remove_dir_all(next_path)
+        .with_context(|| format!("Failed to delete .next directory: {}", next_path.display()))?;
+
+    Ok(Some(size))
+}
+
+/// Safely deletes a cargo-nix cache directory with verification
+pub fn delete_cargo_nix_dir(cargo_nix_path: &Path, dry_run: bool) -> Result<Option<u64>> {
+    // Verify it's actually a cargo-nix directory
+    if !is_cargo_nix_dir(cargo_nix_path) {
+        return Ok(None);
+    }
+
+    if dry_run {
+        return Ok(Some(0)); // In dry-run, don't calculate size
+    }
+
+    // Calculate size before deletion
+    let size = calculate_dir_size(cargo_nix_path).unwrap_or(0);
+
+    // Delete the directory
+    fs::remove_dir_all(cargo_nix_path)
+        .with_context(|| format!("Failed to delete .cargo-nix directory: {}", cargo_nix_path.display()))?;
 
     Ok(Some(size))
 }

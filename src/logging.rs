@@ -84,6 +84,51 @@ impl Logger {
         Ok(())
     }
 
+    pub fn log_found_sccache(&mut self, count: usize, paths: &[PathBuf]) -> Result<()> {
+        writeln!(self.file, "Found {} sccache directories:", count)?;
+        for path in paths {
+            writeln!(self.file, "  - {}", path.display())?;
+        }
+        writeln!(self.file)?;
+        Ok(())
+    }
+
+    pub fn log_found_stack_work(&mut self, count: usize, paths: &[PathBuf]) -> Result<()> {
+        writeln!(self.file, "Found {} Stack work directories:", count)?;
+        for path in paths {
+            writeln!(self.file, "  - {}", path.display())?;
+        }
+        writeln!(self.file)?;
+        Ok(())
+    }
+
+    pub fn log_found_rustup(&mut self, count: usize, paths: &[PathBuf]) -> Result<()> {
+        writeln!(self.file, "Found {} rustup directories:", count)?;
+        for path in paths {
+            writeln!(self.file, "  - {}", path.display())?;
+        }
+        writeln!(self.file)?;
+        Ok(())
+    }
+
+    pub fn log_found_next(&mut self, count: usize, paths: &[PathBuf]) -> Result<()> {
+        writeln!(self.file, "Found {} Next.js build directories:", count)?;
+        for path in paths {
+            writeln!(self.file, "  - {}", path.display())?;
+        }
+        writeln!(self.file)?;
+        Ok(())
+    }
+
+    pub fn log_found_cargo_nix(&mut self, count: usize, paths: &[PathBuf]) -> Result<()> {
+        writeln!(self.file, "Found {} cargo-nix directories:", count)?;
+        for path in paths {
+            writeln!(self.file, "  - {}", path.display())?;
+        }
+        writeln!(self.file)?;
+        Ok(())
+    }
+
     pub fn log_cleaning_start(&mut self) -> Result<()> {
         writeln!(self.file, "Starting cleanup...")?;
         writeln!(self.file)?;
@@ -167,6 +212,66 @@ impl Logger {
         Ok(())
     }
 
+    pub fn log_sccache_cleaned(&mut self, path: &str, space_freed: u64) -> Result<()> {
+        let timestamp = Local::now().format("%H:%M:%S");
+        writeln!(
+            self.file,
+            "[{}] SCCACHE: {} (freed {})",
+            timestamp,
+            path,
+            human_bytes(space_freed)
+        )?;
+        Ok(())
+    }
+
+    pub fn log_stack_work_cleaned(&mut self, path: &str, space_freed: u64) -> Result<()> {
+        let timestamp = Local::now().format("%H:%M:%S");
+        writeln!(
+            self.file,
+            "[{}] STACK_WORK: {} (freed {})",
+            timestamp,
+            path,
+            human_bytes(space_freed)
+        )?;
+        Ok(())
+    }
+
+    pub fn log_rustup_cleaned(&mut self, path: &str, space_freed: u64) -> Result<()> {
+        let timestamp = Local::now().format("%H:%M:%S");
+        writeln!(
+            self.file,
+            "[{}] RUSTUP: {} (freed {})",
+            timestamp,
+            path,
+            human_bytes(space_freed)
+        )?;
+        Ok(())
+    }
+
+    pub fn log_next_cleaned(&mut self, path: &str, space_freed: u64) -> Result<()> {
+        let timestamp = Local::now().format("%H:%M:%S");
+        writeln!(
+            self.file,
+            "[{}] NEXT: {} (freed {})",
+            timestamp,
+            path,
+            human_bytes(space_freed)
+        )?;
+        Ok(())
+    }
+
+    pub fn log_cargo_nix_cleaned(&mut self, path: &str, space_freed: u64) -> Result<()> {
+        let timestamp = Local::now().format("%H:%M:%S");
+        writeln!(
+            self.file,
+            "[{}] CARGO_NIX: {} (freed {})",
+            timestamp,
+            path,
+            human_bytes(space_freed)
+        )?;
+        Ok(())
+    }
+
     pub fn log_summary(
         &mut self,
         total: usize,
@@ -177,6 +282,11 @@ impl Logger {
         orphaned_cleaned: usize,
         node_modules_cleaned: usize,
         venvs_cleaned: usize,
+        sccache_cleaned: usize,
+        stack_work_cleaned: usize,
+        rustup_cleaned: usize,
+        next_cleaned: usize,
+        cargo_nix_cleaned: usize,
         total_space_freed: u64,
     ) -> Result<()> {
         writeln!(self.file)?;
@@ -191,6 +301,11 @@ impl Logger {
         writeln!(self.file, "Orphaned targets cleaned: {}", orphaned_cleaned)?;
         writeln!(self.file, "Node modules cleaned: {}", node_modules_cleaned)?;
         writeln!(self.file, "Python venvs cleaned: {}", venvs_cleaned)?;
+        writeln!(self.file, "Sccache dirs cleaned: {}", sccache_cleaned)?;
+        writeln!(self.file, "Stack work dirs cleaned: {}", stack_work_cleaned)?;
+        writeln!(self.file, "Rustup dirs cleaned: {}", rustup_cleaned)?;
+        writeln!(self.file, "Next.js builds cleaned: {}", next_cleaned)?;
+        writeln!(self.file, "Cargo-nix dirs cleaned: {}", cargo_nix_cleaned)?;
         writeln!(self.file, "Total space freed: {}", human_bytes(total_space_freed))?;
         writeln!(self.file)?;
         writeln!(self.file, "Completed: {}", Local::now().format("%Y-%m-%d %H:%M:%S"))?;

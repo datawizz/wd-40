@@ -4,13 +4,13 @@
 
 ## What is WD-40?
 
-`wd-40` is a command-line tool that recursively walks through directories and cleans build artifacts from Rust, Node.js, and Python projects. Just like its namesake penetrating oil that helps remove rust and grime from metal, this tool removes build artifacts and cached dependencies from your filesystem.
+`wd-40` is a command-line tool that recursively walks through directories and cleans build artifacts from Rust, Node.js, Python, and Haskell Stack projects, including compilation caches like sccache. Just like its namesake penetrating oil that helps remove rust and grime from metal, this tool removes build artifacts and cached dependencies from your filesystem.
 
 ## Why the name?
 
 The name is a playful pun on multiple levels:
 - **WD-40** is famous for cleaning and removing rust (the oxidation)
-- This tool cleans **Rust** (the programming language) projects, plus Node.js and Python
+- This tool cleans **Rust** (the programming language) projects, plus Node.js, Python, and Haskell
 - Just like WD-40 penetrates stuck parts, this tool penetrates deep into your directory structure
 - WD-40 displaces unwanted buildup - this tool displaces unwanted build artifacts
 
@@ -48,6 +48,9 @@ wd-40 --node-only
 # Clean only Python virtual environments
 wd-40 --python-only
 
+# Clean only Haskell Stack projects
+wd-40 --haskell-only
+
 # Skip confirmation prompt
 wd-40 -y
 ```
@@ -59,6 +62,8 @@ wd-40 -y
    - **Rust projects**: Directories with `Cargo.toml` files
    - **Node.js projects**: `node_modules` directories with proper validation
    - **Python projects**: Virtual environments (`.venv`, `venv`, etc.)
+   - **Haskell Stack projects**: Stack work directories (`.stack-work`)
+   - **sccache directories**: Compilation cache directories (`.sccache`)
 2. Delete the artifacts with robust validation to prevent false positives
 3. Report how much disk space was freed
 4. Show a detailed summary of all artifacts cleaned
@@ -72,6 +77,8 @@ wd-40 -y
 Found 4 Rust projects
 Found 3 node_modules directories
 Found 2 Python virtual environments
+Found 2 Stack work directories
+Found 1 sccache directory
 
 Proceed with cleaning? (y/N) y
 
@@ -84,12 +91,17 @@ Proceed with cleaning? (y/N) y
 📦 ~/projects/frontend/node_modules
 🐍 ~/projects/ml-project/.venv
 🐍 ~/projects/data-analysis/venv
+λ ~/projects/haskell-parser/.stack-work
+λ ~/projects/haskell-server/.stack-work
+🔧 ~/workspace/.sccache
 
 Summary:
          4 Rust projects cleaned
          3 node_modules
          2 Python venvs
-         3.42 GB total space freed
+         2 Stack work directories
+         1 sccache directory
+         4.15 GB total space freed
 
 Log file: ~/.cache/wd-40/clean-20250112-143055.log
 ```
@@ -112,6 +124,17 @@ Log file: ~/.cache/wd-40/clean-20250112-143055.log
 - Virtual environment directories (`.venv`, `venv`, etc.)
 - All installed Python packages in the venv
 
+**Haskell Stack:**
+- `.stack-work/` directories
+- Compiled binaries and libraries
+- Build artifacts and caches
+- Stack SQLite databases
+
+**sccache:**
+- `.sccache/` directories
+- Cached compilation objects
+- All cached build artifacts
+
 Make sure you actually want to clean these artifacts before running. Use `--dry-run` first if you're unsure.
 
 ### Safety Features
@@ -121,6 +144,8 @@ WD-40 includes multiple layers of validation to prevent false positives:
 - **Rust targets**: Validates with `CACHEDIR.TAG` or `.rustc_info.json` markers
 - **node_modules**: Requires parent directory to have `package.json`, `package-lock.json`, `yarn.lock`, or `pnpm-lock.yaml`
 - **Python venvs**: Requires `pyvenv.cfg` file AND activation scripts AND lib directories
+- **Stack work**: Validates `stack.sqlite3` OR `dist`/`install` directories AND parent has `stack.yaml`/`.cabal` file
+- **sccache**: Validates directory name AND cache structure (subdirectories/files) AND excludes project directories
 
 ## Why use this?
 
@@ -128,6 +153,8 @@ WD-40 includes multiple layers of validation to prevent false positives:
   - Rust's `target` directories (often 500MB-2GB per project)
   - Node.js `node_modules` (often 200MB-1GB per project)
   - Python virtual environments (often 100MB-500MB per venv)
+  - Haskell Stack's `.stack-work` directories (often 200MB-1GB per project)
+  - sccache compilation caches (often 1GB-10GB per cache)
 - **Clean slate builds**: Sometimes you need to start fresh across multiple projects
 - **Pre-backup cleanup**: Remove build artifacts before backing up source code
 - **CI/CD pipelines**: Clean workspace between builds
