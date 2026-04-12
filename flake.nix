@@ -14,6 +14,18 @@
         };
       in
       {
+        packages.default = pkgs.rustPlatform.buildRustPackage {
+          pname = "wd-40";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock.lockFile = ./Cargo.lock;
+          meta = with pkgs.lib; {
+            description = "A CLI tool to recursively find and clean build artifacts";
+            license = with licenses; [ mit asl20 ];
+            mainProgram = "wd-40";
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Rust toolchain
